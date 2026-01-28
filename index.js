@@ -3,28 +3,44 @@ import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 
+/* =========================
+   CORS
+   ========================= */
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.sendStatus(204);
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
   next();
 });
 
 app.use(express.json({ limit: "1mb" }));
 
+/* =========================
+   SUPABASE CLIENT
+   ========================= */
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+/* =========================
+   API ENDPOINT
+   ========================= */
 app.post("/day-results", async (req, res) => {
   try {
     const payload = {
+      // Pflichtfeld in deiner Tabelle (NOT NULL)
+      klassencode: req.body.klassencode ?? "UNKNOWN",
+
+      // Mapping Frontend → DB
       teilnehmer_code: req.body.participant_id ?? "unknown",
-      lesson_id: req.body.lesson_id,
-      completed_at: req.body.completed_at,
-      results: req.body.results
+      lesson_id: req.body.lesson_id ?? null,
+      completed_at: req.body.completed_at ?? new Date().toISOString(),
+      results: req.body.results ?? {}
     };
 
     const { data, error } = await supabase
@@ -40,7 +56,10 @@ app.post("/day-results", async (req, res) => {
       });
     }
 
-    return res.status(200).json({ ok: true, data });
+    return res.status(200).json({
+      ok: true,
+      data
+    });
 
   } catch (err) {
     console.error("❌ Server error:", err);
@@ -51,6 +70,9 @@ app.post("/day-results", async (req, res) => {
   }
 });
 
+/* =========================
+   HEALTH CHECK
+   ========================= */
 app.get("/", (_req, res) => {
   res.send("day-results-api running");
 });
