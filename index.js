@@ -21,7 +21,7 @@ const supabase = createClient(
 app.post("/day-results", async (req, res) => {
   try {
     const payload = {
-      participant_id: req.body.participant_id ?? "unknown",
+      teilnehmer_code: req.body.participant_id ?? "unknown",
       lesson_id: req.body.lesson_id,
       completed_at: req.body.completed_at,
       results: req.body.results
@@ -33,18 +33,17 @@ app.post("/day-results", async (req, res) => {
       .select();
 
     if (error) {
-      console.error("❌ Supabase error:", error);
+      console.error("❌ Supabase insert error:", error);
       return res.status(500).json({
         ok: false,
-        supabase_error: error.message,
-        details: error
+        supabase_error: error.message
       });
     }
 
     return res.status(200).json({ ok: true, data });
 
   } catch (err) {
-    console.error("❌ Server crash:", err);
+    console.error("❌ Server error:", err);
     return res.status(500).json({
       ok: false,
       server_error: err.message
@@ -60,4 +59,3 @@ const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log("🚀 Server listening on port", PORT);
 });
-
