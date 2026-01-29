@@ -41,15 +41,15 @@ app.post("/day-results", async (req, res) => {
     const lesson_id = req.body.lesson_id ?? "UNKNOWN";
     const participant_id = req.body.participant_id ?? "unknown";
 
-    // 🧠 Payload EXAKT passend zur Tabelle daily_results
-    const payload = {
-      klassencode: req.body.klassencode ?? "UNKNOWN",
-      teilnehmer_code: participant_id,
-      lesson_id: lesson_id,
-      tag_id: lesson_id, // ✅ WICHTIG: NOT NULL in Supabase
-      completed_at: req.body.completed_at ?? new Date().toISOString(),
-      results: req.body.results ?? {}
-    };
+   const payload = {
+  klassencode: req.body.klassencode ?? "UNKNOWN",
+  teilnehmer_code: participant_id,
+  lektion_id: lesson_id,   // ✅ RICHTIGER SPALTENNAME
+  tag_id: lesson_id,       // ✅ NOT NULL erfüllt
+  completed_at: req.body.completed_at ?? new Date().toISOString(),
+  results: req.body.results ?? {}
+};
+
 
     const { data, error } = await supabase
       .from("daily_results")
