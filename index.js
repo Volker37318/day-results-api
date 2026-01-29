@@ -3,9 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 
-/* =========================
-   CORS
-   ========================= */
+/* ======================================================
+   BASIS-MIDDLEWARE
+   ====================================================== */
+
+// CORS – bewusst offen (für Netlify, Browser, Tests)
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
@@ -17,28 +19,34 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: "1mb" }));
+// JSON Body Parser
+app.use(express.json({ limit: "2mb" }));
 
-/* =========================
+/* ======================================================
    SUPABASE CLIENT
-   ========================= */
+   ====================================================== */
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/* =========================
-   API ENDPOINT
-   ========================= */
+/* ======================================================
+   API: DAY RESULTS
+   ====================================================== */
+
 app.post("/day-results", async (req, res) => {
   try {
-    const payload = {
-      // Pflichtfeld in deiner Tabelle (NOT NULL)
-      klassencode: req.body.klassencode ?? "UNKNOWN",
+    // 🔒 Pflichtwerte sauber absichern
+    const lesson_id = req.body.lesson_id ?? "UNKNOWN";
+    const participant_id = req.body.participant_id ?? "unknown";
 
-      // Mapping Frontend → DB
-      teilnehmer_code: req.body.participant_id ?? "unknown",
-      lesson_id: req.body.lesson_id ?? null,
+    // 🧠 Payload EXAKT passend zur Tabelle daily_results
+    const payload = {
+      klassencode: req.body.klassencode ?? "UNKNOWN",
+      teilnehmer_code: participant_id,
+      lesson_id: lesson_id,
+      tag_id: lesson_id, // ✅ WICHTIG: NOT NULL in Supabase
       completed_at: req.body.completed_at ?? new Date().toISOString(),
       results: req.body.results ?? {}
     };
@@ -52,7 +60,7 @@ app.post("/day-results", async (req, res) => {
       console.error("❌ Supabase insert error:", error);
       return res.status(500).json({
         ok: false,
-        supabase_error: error.message
+        error: error.message
       });
     }
 
@@ -62,22 +70,27 @@ app.post("/day-results", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ Server error:", err);
+    console.error("❌ Server crash:", err);
     return res.status(500).json({
       ok: false,
-      server_error: err.message
+      error: String(err.message || err)
     });
   }
 });
 
-/* =========================
+/* ======================================================
    HEALTH CHECK
-   ========================= */
+   ====================================================== */
+
 app.get("/", (_req, res) => {
-  res.send("day-results-api running");
+  res.status(200).send("day-results-api running");
 });
+
+/* ======================================================
+   START SERVER
+   ====================================================== */
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
-  console.log("🚀 Server listening on port", PORT);
+  console.log("🚀 day-results-api listening on port", PORT);
 });
