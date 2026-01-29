@@ -3,94 +3,87 @@ import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 
-/* ======================================================
-   BASIS-MIDDLEWARE
-   ====================================================== */
+/* =========================
+   BASIS
+========================= */
+app.use(express.json({ limit: "2mb" }));
 
-// CORS – bewusst offen (für Netlify, Browser, Tests)
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
+  if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
-// JSON Body Parser
-app.use(express.json({ limit: "2mb" }));
-
-/* ======================================================
-   SUPABASE CLIENT
-   ====================================================== */
-
+/* =========================
+   SUPABASE
+========================= */
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/* ======================================================
-   API: DAY RESULTS
-   ====================================================== */
+/* =========================
+   NORMALISIERUNG
+========================= */
+function normalize(body = {}) {
+  const lesson = String(body.lesson_id || "UNKNOWN");
 
+  return {
+    klassencode: String(body.klassencode || "UNKNOWN"),
+    teilnehmer_code: String(body.participant_id || "unknown"),
+    tag_id: lesson,
+    lektion_id: lesson,
+    startzeit: new Date().toISOString(),
+    completed_at: body.completed_at
+      ? new Date(body.completed_at).toISOString()
+      : new Date().toISOString(),
+    results:
+      body.results && typeof body.results === "object"
+        ? body.results
+        : {}
+  };
+}
+
+/* =========================
+   API
+========================= */
 app.post("/day-results", async (req, res) => {
   try {
-    // 🔒 Pflichtwerte sauber absichern
-    const lesson_id = req.body.lesson_id ?? "UNKNOWN";
-    const participant_id = req.body.participant_id ?? "unknown";
+    const payload = normalize(req.body);
 
-   const payload = {
-  klassencode: req.body.klassencode ?? "UNKNOWN",
-  teilnehmer_code: participant_id,
-  lektion_id: lesson_id,   // ✅ RICHTIGER SPALTENNAME
-  tag_id: lesson_id,       // ✅ NOT NULL erfüllt
-  completed_at: req.body.completed_at ?? new Date().toISOString(),
-  results: req.body.results ?? {}
-};
-
-
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("daily_results")
-      .insert(payload)
-      .select();
+      .insert(payload);
 
     if (error) {
-      console.error("❌ Supabase insert error:", error);
+      console.error("❌ SUPABASE ERROR:", error);
       return res.status(500).json({
         ok: false,
-        error: error.message
+        reason: "DB_INSERT_FAILED",
+        details: error.message
       });
     }
 
-    return res.status(200).json({
-      ok: true,
-      data
-    });
+    return res.json({ ok: true });
 
   } catch (err) {
-    console.error("❌ Server crash:", err);
+    console.error("❌ SERVER ERROR:", err);
     return res.status(500).json({
       ok: false,
-      error: String(err.message || err)
+      reason: "SERVER_CRASH",
+      details: String(err)
     });
   }
 });
 
-/* ======================================================
-   HEALTH CHECK
-   ====================================================== */
-
-app.get("/", (_req, res) => {
-  res.status(200).send("day-results-api running");
-});
-
-/* ======================================================
-   START SERVER
-   ====================================================== */
+/* =========================
+   HEALTH
+========================= */
+app.get("/", (_, res) => res.send("OK"));
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
-  console.log("🚀 day-results-api listening on port", PORT);
+  console.log("🚀 day-results-api running on", PORT);
 });
