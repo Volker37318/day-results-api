@@ -50,12 +50,49 @@ function normalize(body = {}) {
    API
 ========================= */
 app.post("/day-results", async (req, res) => {
-  return res.status(418).json({
-    ok: false,
-    proof: "THIS IS THE NEW SERVER CODE",
-    received: req.body
-  });
+  try {
+    const lesson = String(req.body?.lesson_id || "UNKNOWN");
+
+    const payload = {
+      klassencode: String(req.body?.klassencode || "UNKNOWN"),
+      teilnehmer_code: String(req.body?.participant_id || "unknown"),
+      tag_id: lesson,
+      lektion_id: lesson,
+      startzeit: new Date().toISOString(),
+      completed_at: req.body?.completed_at
+        ? new Date(req.body.completed_at).toISOString()
+        : new Date().toISOString(),
+      results:
+        req.body?.results && typeof req.body.results === "object"
+          ? req.body.results
+          : {}
+    };
+
+    const { error } = await supabase
+      .from("daily_results")
+      .insert(payload);
+
+    if (error) {
+      console.error("❌ SUPABASE ERROR:", error);
+      return res.status(500).json({
+        ok: false,
+        reason: "DB_INSERT_FAILED",
+        details: error.message
+      });
+    }
+
+    return res.status(200).json({ ok: true });
+
+  } catch (err) {
+    console.error("❌ SERVER ERROR:", err);
+    return res.status(500).json({
+      ok: false,
+      reason: "SERVER_CRASH",
+      details: String(err)
+    });
+  }
 });
+
 
 
 
