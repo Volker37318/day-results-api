@@ -50,33 +50,14 @@ function normalize(body = {}) {
    API
 ========================= */
 app.post("/day-results", async (req, res) => {
-  try {
-    const payload = normalize(req.body);
-
-    const { error } = await supabase
-      .from("daily_results")
-      .insert(payload);
-
-    if (error) {
-      console.error("❌ SUPABASE ERROR:", error);
-      return res.status(500).json({
-        ok: false,
-        reason: "DB_INSERT_FAILED",
-        details: error.message
-      });
-    }
-
-    return res.json({ ok: true });
-
-  } catch (err) {
-    console.error("❌ SERVER ERROR:", err);
-    return res.status(500).json({
-      ok: false,
-      reason: "SERVER_CRASH",
-      details: String(err)
-    });
-  }
+  return res.status(418).json({
+    ok: false,
+    proof: "THIS IS THE NEW SERVER CODE",
+    received: req.body
+  });
 });
+
+
 
 /* =========================
    HEALTH
