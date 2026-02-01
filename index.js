@@ -5,6 +5,9 @@ import crypto from "crypto";
 const app = express();
 app.use(express.json({ limit: "2mb" }));
 
+// --------------------------------------------------
+// CORS
+// --------------------------------------------------
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -13,17 +16,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// --------------------------------------------------
+// Supabase
+// --------------------------------------------------
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/* ======================================================
-   STUFE 2 – GESCHÜTZTE EINTRAGUNGEN
-   - validiert Pflichtfelder
-   - verhindert kaputte Datensätze
-====================================================== */
-
+// --------------------------------------------------
+// Helper
+// --------------------------------------------------
 function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
@@ -32,6 +35,9 @@ function isPlainObject(v) {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
+// --------------------------------------------------
+// POST /day-results
+// --------------------------------------------------
 app.post("/day-results", async (req, res) => {
   try {
     const body = req.body;
@@ -44,7 +50,7 @@ app.post("/day-results", async (req, res) => {
       });
     }
 
-    // 🔒 1. lesson_id
+    // 🔒 1. lesson_id (Pflicht)
     if (!isNonEmptyString(body.lesson_id)) {
       return res.status(400).json({
         ok: false,
@@ -52,15 +58,17 @@ app.post("/day-results", async (req, res) => {
       });
     }
 
-    // 🔒 2. participant_id
-    if (!isNonEmptyString(body.participant_id)) {
-      return res.status(400).json({
-        ok: false,
-        reason: "MISSING_PARTICIPANT_ID"
-      });
-    }
+    // 🔒 2. klassencode (Pflicht, mit kontrolliertem Fallback)
+    const klassencode = isNonEmptyString(body.klassencode)
+      ? body.klassencode.trim()
+      : "UNDEFINED_CLASS";
 
-    // 🔒 3. day_results
+    // 🔒 3. participant_id (Pflicht, mit kontrolliertem Fallback)
+    const participant_id = isNonEmptyString(body.participant_id)
+      ? body.participant_id.trim()
+      : "UNDEFINED_PARTICIPANT";
+
+    // 🔒 4. day_results – genau EINE Übung
     if (!isPlainObject(body.day_results)) {
       return res.status(400).json({
         ok: false,
@@ -69,30 +77,47 @@ app.post("/day-results", async (req, res) => {
     }
 
     const exerciseKeys = Object.keys(body.day_results);
-    if (exerciseKeys.length === 0) {
+    if (exerciseKeys.length !== 1) {
       return res.status(400).json({
         ok: false,
-        reason: "EMPTY_DAY_RESULTS"
+        reason: "INVALID_EXERCISE_COUNT"
       });
     }
 
-    // optional: nur A–E erlauben
-    const invalidKey = exerciseKeys.find(
-      k => !["A", "B", "C", "D", "E"].includes(k)
-    );
-    if (invalidKey) {
+    const exerciseKey = exerciseKeys[0];
+    if (!["A", "B", "C", "D", "E"].includes(exerciseKey)) {
       return res.status(400).json({
         ok: false,
         reason: "INVALID_EXERCISE_KEY",
-        key: invalidKey
+        key: exerciseKey
       });
     }
 
-    // 🔒 INSERT (wie STUFE 1)
+    // --------------------------------------------------
+    // Payload kontrolliert neu aufbauen
+    // --------------------------------------------------
+    const nowIso = new Date().toISOString(); // UTC – korrekt so
+
+    const payload = {
+      lesson_id: body.lesson_id,
+      klassencode,
+      participant_id,
+      completed_at: isNonEmptyString(body.completed_at)
+        ? body.completed_at
+        : nowIso,
+      day_results: {
+        [exerciseKey]: body.day_results[exerciseKey]
+      },
+      summary: isPlainObject(body.summary) ? body.summary : null
+    };
+
+    // --------------------------------------------------
+    // Insert
+    // --------------------------------------------------
     const row = {
       id: crypto.randomUUID(),
-      payload: body,
-      received_at: new Date().toISOString(),
+      payload,
+      received_at: nowIso, // UTC speichern
       source: "frontend",
       schema_version: 1
     };
@@ -117,5 +142,6 @@ app.post("/day-results", async (req, res) => {
   }
 });
 
+// --------------------------------------------------
 app.get("/", (_, res) => res.send("OK"));
 app.listen(process.env.PORT || 8000);
