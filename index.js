@@ -26,7 +26,7 @@ app.post("/day-results", async (req, res) => {
       return res.status(400).json({ ok: false, reason: "MISSING_FIELDS" });
     }
 
-    // genau eine Übung
+    // GENAU EINE ÜBUNG
     const exerciseCode = Object.keys(day_results)[0];
     const exerciseData = day_results[exerciseCode];
 
@@ -45,7 +45,7 @@ app.post("/day-results", async (req, res) => {
         exerciseData.timeMs ??
         null,
       Ergebnis: exerciseData
-      // empfangen_am wird von Supabase automatisch gesetzt
+      // empfangen_am NICHT setzen – macht Supabase selbst
     };
 
     const { error } = await supabase
