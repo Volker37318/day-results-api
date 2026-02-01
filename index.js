@@ -51,15 +51,20 @@ app.post("/day-results", async (req, res) => {
     // 🔒 Server erzeugt IDs & Zeiten
     const now = new Date().toISOString();
 
-    const payload = {
-      "Ausweis": crypto.randomUUID(),
-      "Klassencode": klassencode,
-      "Teilnehmer-ID": participant_id,
-      set_id: crypto.randomUUID(),
-      "Übungscode": exerciseCode,
-      begann_am: now,
-      "abgeschlossen am": now
-    };
+   const payload = {
+  "Ausweis": crypto.randomUUID(),
+  "Nutzlast": day_results,        // 🔒 NOT NULL
+  empfangen_am: now,              // 🔒 NOT NULL
+
+  // bestehende Test-Spalten
+  "Klassencode": klassencode,
+  "Teilnehmer-ID": participant_id,
+  set_id: crypto.randomUUID(),
+  "Übungscode": exerciseCode,
+  begann_am: now,
+  "abgeschlossen am": now
+};
+
 
     const { error } = await supabase
       .from("day_results")
