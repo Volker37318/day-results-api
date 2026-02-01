@@ -1,7 +1,16 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 
+/* ======================================
+   🔥 MARKER – MUSS IM KOYEB-LOG ERSCHEINEN
+====================================== */
+console.log("🔥🔥🔥 EXERCISE_RESULTS VERSION ACTIVE 🔥🔥🔥");
+
+/* =========================
+   APP BASIS
+========================= */
 const app = express();
+
 app.use(express.json({ limit: "2mb" }));
 
 app.use((req, res, next) => {
