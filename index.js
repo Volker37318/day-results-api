@@ -37,6 +37,7 @@ app.post("/day-results", async (req, res) => {
       return res.status(400).json({ ok: false, reason: "MISSING_FIELDS" });
     }
 
+    // 🔹 genau EINE Übung verarbeiten
     const exerciseCode = Object.keys(day_results)[0];
     const exerciseData = day_results[exerciseCode];
 
@@ -44,22 +45,43 @@ app.post("/day-results", async (req, res) => {
       ? new Date(completed_at).toISOString()
       : new Date().toISOString();
 
+    // 🔹 WICHTIGE WERTE NORMALISIEREN
+    const durationMs =
+      exerciseData.duration_ms ??
+      exerciseData.durationMs ??
+      exerciseData.timeMs ??
+      exerciseData.ms ??
+      null;
+
+    const score =
+      exerciseData.score ??
+      exerciseData.scoreAvg ??
+      exerciseData.percent ??
+      exerciseData.pct ??
+      null;
+
+    // 🔹 FINALER, AUSWERTBARER PAYLOAD
     const payload = {
       klassencode,
       participant_id,
-      set_id: crypto.randomUUID(),   // ✅ UUID
+
+      set_id: crypto.randomUUID(),
       exercise_code: exerciseCode,
-      started_at: completedAt,       // ✅ FIX: NOT NULL
+
+      started_at: completedAt,
       completed_at: completedAt,
+
+      duration_ms: durationMs,
+      score: score,
+
       result: exerciseData
     };
 
     console.log("➡️ INSERT PAYLOAD:", payload);
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("exercise_results")
-      .insert(payload)
-      .select();
+      .insert(payload);
 
     if (error) {
       console.error("❌ SUPABASE ERROR:", error);
@@ -84,5 +106,4 @@ const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log("🚀 exercise-results-api running on", PORT);
 });
-
 
