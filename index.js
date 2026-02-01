@@ -19,19 +19,20 @@ const supabase = createClient(
 );
 
 /* =========================================
-   TEST 1 – NUR DIE ERSTEN 5 SPALTEN
+   TEST 1 + ZEITFELDER
+   - sichere Inserts
+   - kein Frontend-Zwang
 ========================================= */
 
 app.post("/day-results", async (req, res) => {
   try {
     const {
-      ausweis,          // uuid
-      klassencode,      // text
-      participant_id,   // text → Teilnehmer-ID
-      day_results       // object mit genau 1 Übung
+      klassencode,      // Text
+      participant_id,   // Text → Teilnehmer-ID
+      day_results       // Objekt mit genau 1 Übung
     } = req.body || {};
 
-    if (!ausweis || !klassencode || !participant_id || !day_results) {
+    if (!klassencode || !participant_id || !day_results) {
       return res.status(400).json({
         ok: false,
         reason: "MISSING_FIELDS"
@@ -40,7 +41,6 @@ app.post("/day-results", async (req, res) => {
 
     // 🔒 GENAU EINE ÜBUNG
     const exerciseCode = Object.keys(day_results)[0];
-
     if (!exerciseCode) {
       return res.status(400).json({
         ok: false,
@@ -48,14 +48,17 @@ app.post("/day-results", async (req, res) => {
       });
     }
 
-    // 🔒 TEST-1-PAYLOAD
-    // 🔒 EXAKT DIE ERSTEN 5 SPALTEN
+    // 🔒 Server erzeugt IDs & Zeiten
+    const now = new Date().toISOString();
+
     const payload = {
-      "Ausweis": ausweis,
+      "Ausweis": crypto.randomUUID(),
       "Klassencode": klassencode,
       "Teilnehmer-ID": participant_id,
       set_id: crypto.randomUUID(),
-      "Übungscode": exerciseCode
+      "Übungscode": exerciseCode,
+      begann_am: now,
+      "abgeschlossen am": now
     };
 
     const { error } = await supabase
