@@ -2,15 +2,11 @@ import express from "express";
 import { createClient } from "@supabase/supabase-js";
 
 const app = express();
-
-/* =========================
-   BASIS
-========================= */
 app.use(express.json({ limit: "2mb" }));
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -25,29 +21,41 @@ const supabase = createClient(
 );
 
 /* =========================
-   API
+   API: 1 ÜBUNG = 1 ZEILE
 ========================= */
 app.post("/day-results", async (req, res) => {
   try {
+    const {
+      klassencode,
+      participant_id,
+      lesson_id,
+      completed_at,
+      day_results
+    } = req.body || {};
+
+    if (!klassencode || !participant_id || !lesson_id || !day_results) {
+      return res.status(400).json({
+        ok: false,
+        reason: "MISSING_FIELDS"
+      });
+    }
+
+    // Wir speichern GENAU EINE Übung pro Request
+    const exerciseCode = Object.keys(day_results)[0];
+    const exerciseData = day_results[exerciseCode];
+
     const payload = {
-      klassencode: String(req.body?.klassencode || "UNKNOWN"),
-      participant_id: String(req.body?.participant_id || "unknown"),
-      lesson_id: String(req.body?.lesson_id || "UNKNOWN"),
-      completed_at: req.body?.completed_at
-        ? new Date(req.body.completed_at).toISOString()
+      klassencode,
+      participant_id,
+      exercise_code: exerciseCode,      // A, B, C, D, E
+      completed_at: completed_at
+        ? new Date(completed_at).toISOString()
         : new Date().toISOString(),
-      day_results:
-        req.body?.day_results && typeof req.body.day_results === "object"
-          ? req.body.day_results
-          : {},
-      summary:
-        req.body?.summary && typeof req.body.summary === "object"
-          ? req.body.summary
-          : {}
+      result: exerciseData
     };
 
     const { error } = await supabase
-      .from("day_results_v2")
+      .from("exercise_results")
       .insert(payload);
 
     if (error) {
@@ -78,5 +86,5 @@ app.get("/", (_, res) => res.send("OK"));
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
-  console.log("🚀 day-results-api running on", PORT);
+  console.log("🚀 exercise-results-api running on", PORT);
 });
