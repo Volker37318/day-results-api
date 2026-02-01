@@ -25,51 +25,29 @@ const supabase = createClient(
 );
 
 /* =========================
-   NORMALISIERUNG
-========================= */
-function normalize(body = {}) {
-  const lesson = String(body.lesson_id || "UNKNOWN");
-
-  return {
-    klassencode: String(body.klassencode || "UNKNOWN"),
-    teilnehmer_code: String(body.participant_id || "unknown"),
-    tag_id: lesson,
-    lektion_id: lesson,
-    startzeit: new Date().toISOString(),
-    completed_at: body.completed_at
-      ? new Date(body.completed_at).toISOString()
-      : new Date().toISOString(),
-    results:
-      body.results && typeof body.results === "object"
-        ? body.results
-        : {}
-  };
-}
-
-/* =========================
    API
 ========================= */
 app.post("/day-results", async (req, res) => {
   try {
-    const lesson = String(req.body?.lesson_id || "UNKNOWN");
-
     const payload = {
       klassencode: String(req.body?.klassencode || "UNKNOWN"),
-      teilnehmer_code: String(req.body?.participant_id || "unknown"),
-      tag_id: lesson,
-      lektion_id: lesson,
-      startzeit: new Date().toISOString(),
+      participant_id: String(req.body?.participant_id || "unknown"),
+      lesson_id: String(req.body?.lesson_id || "UNKNOWN"),
       completed_at: req.body?.completed_at
         ? new Date(req.body.completed_at).toISOString()
         : new Date().toISOString(),
-      results:
-        req.body?.results && typeof req.body.results === "object"
-          ? req.body.results
+      day_results:
+        req.body?.day_results && typeof req.body.day_results === "object"
+          ? req.body.day_results
+          : {},
+      summary:
+        req.body?.summary && typeof req.body.summary === "object"
+          ? req.body.summary
           : {}
     };
 
     const { error } = await supabase
-      .from("daily_results")
+      .from("day_results_v2")
       .insert(payload);
 
     if (error) {
@@ -92,9 +70,6 @@ app.post("/day-results", async (req, res) => {
     });
   }
 });
-
-
-
 
 /* =========================
    HEALTH
