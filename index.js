@@ -66,6 +66,7 @@ app.post("/day-results", async (req, res) => {
     const payload = {
       klassencode,
       participant_id,
+      set_id: lesson_id,                 // ✅ FIX: Pflichtfeld setzen
       exercise_code: exerciseCode,
       completed_at: completed_at
         ? new Date(completed_at).toISOString()
@@ -112,3 +113,4 @@ const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log("🚀 exercise-results-api running on", PORT);
 });
+
