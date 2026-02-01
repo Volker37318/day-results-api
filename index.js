@@ -18,60 +18,41 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/* =========================================
-   TEST 1 + ZEITFELDER
-   - sichere Inserts
-   - kein Frontend-Zwang
-========================================= */
+/* ======================================================
+   STUFE 1 REAL
+   - id
+   - payload (ECHTE ÜBUNGSDATEN)
+   - received_at
+====================================================== */
 
 app.post("/day-results", async (req, res) => {
   try {
-    const {
-      klassencode,      // Text
-      participant_id,   // Text → Teilnehmer-ID
-      day_results       // Objekt mit genau 1 Übung
-    } = req.body || {};
+    const body = req.body;
 
-    if (!klassencode || !participant_id || !day_results) {
+    // 🔒 Minimal-Validierung
+    if (!body || typeof body !== "object") {
       return res.status(400).json({
         ok: false,
-        reason: "MISSING_FIELDS"
+        reason: "INVALID_BODY"
       });
     }
 
-    // 🔒 GENAU EINE ÜBUNG
-    const exerciseCode = Object.keys(day_results)[0];
-    if (!exerciseCode) {
-      return res.status(400).json({
-        ok: false,
-        reason: "NO_EXERCISE_CODE"
-      });
-    }
-
-    // 🔒 Server erzeugt IDs & Zeiten
-    const now = new Date().toISOString();
-
-   const payload = {
-  "Ausweis": crypto.randomUUID(),
-  "Nutzlast": day_results,        // 🔒 NOT NULL
-  empfangen_am: now,              // 🔒 NOT NULL
-
-  // bestehende Test-Spalten
-  "Klassencode": klassencode,
-  "Teilnehmer-ID": participant_id,
-  set_id: crypto.randomUUID(),
-  "Übungscode": exerciseCode,
-  begann_am: now,
-  "abgeschlossen am": now
-};
-
+    // 🔒 Server erzeugt Pflichtwerte
+    const row = {
+      id: crypto.randomUUID(),                 // Pflicht 1
+      payload: body,                           // Pflicht 2 (ECHTE Daten)
+      received_at: new Date().toISOString(),   // Pflicht 3
+      source: "frontend",
+      schema_version: 1
+    };
 
     const { error } = await supabase
       .from("day_results")
-      .insert(payload);
+      .insert(row);
 
     if (error) {
       console.error("SUPABASE ERROR:", error);
+      console.error("ROW:", row);
       return res.status(500).json({
         ok: false,
         reason: "DB_INSERT_FAILED",
@@ -88,5 +69,4 @@ app.post("/day-results", async (req, res) => {
 });
 
 app.get("/", (_, res) => res.send("OK"));
-
 app.listen(process.env.PORT || 8000);
