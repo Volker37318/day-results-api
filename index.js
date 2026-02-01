@@ -22,7 +22,6 @@ const supabase = createClient(
 
 app.post("/day-results", async (req, res) => {
   console.log("➡️ REQUEST HIT /day-results");
-  console.log("BODY:", JSON.stringify(req.body, null, 2));
 
   try {
     const {
@@ -33,19 +32,25 @@ app.post("/day-results", async (req, res) => {
       day_results
     } = req.body || {};
 
+    // 🟡 Fehlende Pflichtfelder → ruhig abbrechen
     if (!klassencode || !participant_id || !lesson_id || !day_results) {
-      return res.status(400).json({ ok: false, reason: "MISSING_FIELDS" });
+      console.warn("⚠️ MISSING_FIELDS – skipped");
+      return res.status(200).json({ ok: false, skipped: true });
     }
 
-    // 🔹 genau EINE Übung verarbeiten
+    // 🟡 genau EINE Übung
     const exerciseCode = Object.keys(day_results)[0];
     const exerciseData = day_results[exerciseCode];
+    if (!exerciseData) {
+      console.warn("⚠️ NO_EXERCISE_DATA – skipped");
+      return res.status(200).json({ ok: false, skipped: true });
+    }
 
     const completedAt = completed_at
       ? new Date(completed_at).toISOString()
       : new Date().toISOString();
 
-    // 🔹 WICHTIGE WERTE NORMALISIEREN
+    // 🟡 Normalisieren
     const durationMs =
       exerciseData.duration_ms ??
       exerciseData.durationMs ??
@@ -60,7 +65,6 @@ app.post("/day-results", async (req, res) => {
       exerciseData.pct ??
       null;
 
-    // 🔹 FINALER, AUSWERTBARER PAYLOAD
     const payload = {
       klassencode,
       participant_id,
@@ -77,26 +81,22 @@ app.post("/day-results", async (req, res) => {
       result: exerciseData
     };
 
-    console.log("➡️ INSERT PAYLOAD:", payload);
-
     const { error } = await supabase
       .from("exercise_results")
       .insert(payload);
 
+    // 🔕 KEIN 500 MEHR – API BLEIBT RUHIG
     if (error) {
-      console.error("❌ SUPABASE ERROR:", error);
-      return res.status(500).json({
-        ok: false,
-        reason: "DB_INSERT_FAILED",
-        details: error.message
-      });
+      console.warn("⚠️ SUPABASE INSERT SKIPPED:", error.message);
+      return res.status(200).json({ ok: false, skipped: true });
     }
 
     return res.status(200).json({ ok: true });
 
   } catch (err) {
-    console.error("❌ SERVER CRASH:", err);
-    return res.status(500).json({ ok: false, reason: "SERVER_CRASH" });
+    // 🔕 Auch hier: kein 500 nach außen
+    console.warn("⚠️ SERVER ERROR SKIPPED:", err?.message);
+    return res.status(200).json({ ok: false, skipped: true });
   }
 });
 
