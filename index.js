@@ -1,16 +1,10 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto"; // 👈 NEU
 
-/* ======================================
-   🔥 MARKER – MUSS IM KOYEB-LOG ERSCHEINEN
-====================================== */
 console.log("🔥🔥🔥 EXERCISE_RESULTS VERSION ACTIVE 🔥🔥🔥");
 
-/* =========================
-   APP BASIS
-========================= */
 const app = express();
-
 app.use(express.json({ limit: "2mb" }));
 
 app.use((req, res, next) => {
@@ -21,17 +15,11 @@ app.use((req, res, next) => {
   next();
 });
 
-/* =========================
-   SUPABASE
-========================= */
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/* =========================
-   API: 1 ÜBUNG = 1 ZEILE
-========================= */
 app.post("/day-results", async (req, res) => {
   console.log("➡️ REQUEST HIT /day-results");
   console.log("BODY:", JSON.stringify(req.body, null, 2));
@@ -46,27 +34,16 @@ app.post("/day-results", async (req, res) => {
     } = req.body || {};
 
     if (!klassencode || !participant_id || !lesson_id || !day_results) {
-      console.error("❌ MISSING FIELDS", {
-        klassencode,
-        participant_id,
-        lesson_id,
-        day_results
-      });
-
-      return res.status(400).json({
-        ok: false,
-        reason: "MISSING_FIELDS"
-      });
+      return res.status(400).json({ ok: false, reason: "MISSING_FIELDS" });
     }
 
-    // GENAU EINE Übung
     const exerciseCode = Object.keys(day_results)[0];
     const exerciseData = day_results[exerciseCode];
 
     const payload = {
       klassencode,
       participant_id,
-      set_id: lesson_id,                 // ✅ FIX: Pflichtfeld setzen
+      set_id: crypto.randomUUID(),      // ✅ UUID erzeugen (FIX)
       exercise_code: exerciseCode,
       completed_at: completed_at
         ? new Date(completed_at).toISOString()
@@ -74,17 +51,15 @@ app.post("/day-results", async (req, res) => {
       result: exerciseData
     };
 
-    console.log("➡️ INSERT PAYLOAD:", JSON.stringify(payload, null, 2));
+    console.log("➡️ INSERT PAYLOAD:", payload);
 
     const { data, error } = await supabase
       .from("exercise_results")
       .insert(payload)
       .select();
 
-    console.log("📦 SUPABASE DATA:", data);
-    console.error("❌ SUPABASE ERROR:", error);
-
     if (error) {
+      console.error("❌ SUPABASE ERROR:", error);
       return res.status(500).json({
         ok: false,
         reason: "DB_INSERT_FAILED",
@@ -96,17 +71,10 @@ app.post("/day-results", async (req, res) => {
 
   } catch (err) {
     console.error("❌ SERVER CRASH:", err);
-    return res.status(500).json({
-      ok: false,
-      reason: "SERVER_CRASH",
-      details: String(err)
-    });
+    return res.status(500).json({ ok: false, reason: "SERVER_CRASH" });
   }
 });
 
-/* =========================
-   HEALTH
-========================= */
 app.get("/", (_, res) => res.send("OK"));
 
 const PORT = process.env.PORT || 8000;
