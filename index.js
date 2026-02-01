@@ -23,25 +23,29 @@ app.post("/day-results", async (req, res) => {
     const { klassencode, participant_id, day_results } = req.body || {};
 
     if (!klassencode || !participant_id || !day_results) {
-      return res.status(400).json({ ok: false });
+      return res.status(400).json({ ok: false, reason: "MISSING_FIELDS" });
     }
 
-    // 👉 genau eine Übung
-    const code = Object.keys(day_results)[0];
-    const data = day_results[code];
+    // genau eine Übung
+    const exerciseCode = Object.keys(day_results)[0];
+    const exerciseData = day_results[exerciseCode];
 
-    const started = new Date(data.started_at || Date.now()).toISOString();
-    const finished = new Date().toISOString();
+    const now = new Date().toISOString();
 
     const payload = {
-      "Klassencode": klassencode,
+      Klassencode: klassencode,
       "Teilnehmer-ID": participant_id,
-      "set_id": crypto.randomUUID(),
-      "Übungscode": code,
-      "begann_am": started,
-      "abgeschlossen am": finished,
-      "Dauer_ms": data.duration_ms ?? null,
-      "Ergebnis": data
+      set_id: crypto.randomUUID(),
+      Übungscode: exerciseCode,
+      begann_am: now,
+      "abgeschlossen am": now,
+      Dauer_ms:
+        exerciseData.duration_ms ??
+        exerciseData.durationMs ??
+        exerciseData.timeMs ??
+        null,
+      Ergebnis: exerciseData
+      // empfangen_am wird von Supabase automatisch gesetzt
     };
 
     const { error } = await supabase
@@ -49,14 +53,18 @@ app.post("/day-results", async (req, res) => {
       .insert(payload);
 
     if (error) {
-      console.error(error);
-      return res.status(500).json({ ok: false });
+      console.error("SUPABASE ERROR:", error);
+      return res.status(500).json({
+        ok: false,
+        reason: "DB_INSERT_FAILED",
+        details: error.message
+      });
     }
 
     return res.json({ ok: true });
 
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error("SERVER ERROR:", err);
     return res.status(500).json({ ok: false });
   }
 });
