@@ -33,6 +33,9 @@ const supabase = createClient(
    API: 1 ÜBUNG = 1 ZEILE
 ========================= */
 app.post("/day-results", async (req, res) => {
+  console.log("➡️ REQUEST HIT /day-results");
+  console.log("BODY:", JSON.stringify(req.body, null, 2));
+
   try {
     const {
       klassencode,
@@ -43,32 +46,44 @@ app.post("/day-results", async (req, res) => {
     } = req.body || {};
 
     if (!klassencode || !participant_id || !lesson_id || !day_results) {
+      console.error("❌ MISSING FIELDS", {
+        klassencode,
+        participant_id,
+        lesson_id,
+        day_results
+      });
+
       return res.status(400).json({
         ok: false,
         reason: "MISSING_FIELDS"
       });
     }
 
-    // Wir speichern GENAU EINE Übung pro Request
+    // GENAU EINE Übung
     const exerciseCode = Object.keys(day_results)[0];
     const exerciseData = day_results[exerciseCode];
 
     const payload = {
       klassencode,
       participant_id,
-      exercise_code: exerciseCode,      // A, B, C, D, E
+      exercise_code: exerciseCode,
       completed_at: completed_at
         ? new Date(completed_at).toISOString()
         : new Date().toISOString(),
       result: exerciseData
     };
 
-    const { error } = await supabase
+    console.log("➡️ INSERT PAYLOAD:", JSON.stringify(payload, null, 2));
+
+    const { data, error } = await supabase
       .from("exercise_results")
-      .insert(payload);
+      .insert(payload)
+      .select();
+
+    console.log("📦 SUPABASE DATA:", data);
+    console.error("❌ SUPABASE ERROR:", error);
 
     if (error) {
-      console.error("❌ SUPABASE ERROR:", error);
       return res.status(500).json({
         ok: false,
         reason: "DB_INSERT_FAILED",
@@ -79,7 +94,7 @@ app.post("/day-results", async (req, res) => {
     return res.status(200).json({ ok: true });
 
   } catch (err) {
-    console.error("❌ SERVER ERROR:", err);
+    console.error("❌ SERVER CRASH:", err);
     return res.status(500).json({
       ok: false,
       reason: "SERVER_CRASH",
