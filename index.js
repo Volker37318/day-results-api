@@ -18,9 +18,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-/* ===============================
-   🔒 IDENTISCHE LOGIK WIE FRONTEND
-================================ */
+/* =========================================
+   IDENTISCHE ZEIT-LOGIK WIE IM FRONTEND
+========================================= */
 function pickDurationMs(obj) {
   if (!obj || typeof obj !== "object") return 0;
   const cands = [
@@ -45,7 +45,10 @@ app.post("/day-results", async (req, res) => {
     const { klassencode, participant_id, day_results } = req.body || {};
 
     if (!klassencode || !participant_id || !day_results) {
-      return res.status(400).json({ ok: false, reason: "MISSING_FIELDS" });
+      return res.status(400).json({
+        ok: false,
+        reason: "MISSING_FIELDS"
+      });
     }
 
     // 🔒 GENAU EINE ÜBUNG
@@ -54,17 +57,18 @@ app.post("/day-results", async (req, res) => {
 
     const now = new Date().toISOString();
 
-    // 🔒 FEST VERDRAHTETER PAYLOAD (1:1 SCHEMA)
+    // 🔒 FINALER, FEST VERDRAHTETER PAYLOAD
+    // 🔒 1:1 zu den Spalten in Supabase
     const payload = {
-      Klassencode: klassencode,
+      "Klassencode": klassencode,
       "Teilnehmer-ID": participant_id,
       set_id: crypto.randomUUID(),
-      Übungscode: exerciseCode,
+      "Übungscode": exerciseCode,
       begann_am: now,
       "abgeschlossen am": now,
-      Dauer_ms: pickDurationMs(exerciseData), // 🔥 HIER IST ES FINAL
-      Ergebnis: exerciseData
-      // empfangen_am → automatisch durch Supabase
+      "Dauer_ms": pickDurationMs(exerciseData),
+      "Ergebnis": exerciseData
+      // empfangen_am → wird automatisch von Supabase gesetzt
     };
 
     const { error } = await supabase
@@ -89,4 +93,5 @@ app.post("/day-results", async (req, res) => {
 });
 
 app.get("/", (_, res) => res.send("OK"));
+
 app.listen(process.env.PORT || 8000);
