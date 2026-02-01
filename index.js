@@ -18,6 +18,28 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+/* ===============================
+   🔒 IDENTISCHE LOGIK WIE FRONTEND
+================================ */
+function pickDurationMs(obj) {
+  if (!obj || typeof obj !== "object") return 0;
+  const cands = [
+    obj.durationMs,
+    obj.duration_ms,
+    obj.timeMs,
+    obj.ms,
+    obj.duration,
+    obj.time
+  ];
+  for (const v of cands) {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) {
+      return n < 1000 ? n * 1000 : n;
+    }
+  }
+  return 0;
+}
+
 app.post("/day-results", async (req, res) => {
   try {
     const { klassencode, participant_id, day_results } = req.body || {};
@@ -26,12 +48,13 @@ app.post("/day-results", async (req, res) => {
       return res.status(400).json({ ok: false, reason: "MISSING_FIELDS" });
     }
 
-    // GENAU EINE ÜBUNG
+    // 🔒 GENAU EINE ÜBUNG
     const exerciseCode = Object.keys(day_results)[0];
     const exerciseData = day_results[exerciseCode];
 
     const now = new Date().toISOString();
 
+    // 🔒 FEST VERDRAHTETER PAYLOAD (1:1 SCHEMA)
     const payload = {
       Klassencode: klassencode,
       "Teilnehmer-ID": participant_id,
@@ -39,13 +62,9 @@ app.post("/day-results", async (req, res) => {
       Übungscode: exerciseCode,
       begann_am: now,
       "abgeschlossen am": now,
-      Dauer_ms:
-        exerciseData.duration_ms ??
-        exerciseData.durationMs ??
-        exerciseData.timeMs ??
-        null,
+      Dauer_ms: pickDurationMs(exerciseData), // 🔥 HIER IST ES FINAL
       Ergebnis: exerciseData
-      // empfangen_am NICHT setzen – macht Supabase selbst
+      // empfangen_am → automatisch durch Supabase
     };
 
     const { error } = await supabase
@@ -70,5 +89,4 @@ app.post("/day-results", async (req, res) => {
 });
 
 app.get("/", (_, res) => res.send("OK"));
-
 app.listen(process.env.PORT || 8000);
