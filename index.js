@@ -19,32 +19,19 @@ const supabase = createClient(
 );
 
 /* =========================================
-   IDENTISCHE ZEIT-LOGIK WIE IM FRONTEND
+   TEST 1 – NUR DIE ERSTEN 5 SPALTEN
 ========================================= */
-function pickDurationMs(obj) {
-  if (!obj || typeof obj !== "object") return 0;
-  const cands = [
-    obj.durationMs,
-    obj.duration_ms,
-    obj.timeMs,
-    obj.ms,
-    obj.duration,
-    obj.time
-  ];
-  for (const v of cands) {
-    const n = Number(v);
-    if (Number.isFinite(n) && n > 0) {
-      return n < 1000 ? n * 1000 : n;
-    }
-  }
-  return 0;
-}
 
 app.post("/day-results", async (req, res) => {
   try {
-    const { klassencode, participant_id, day_results } = req.body || {};
+    const {
+      ausweis,          // uuid
+      klassencode,      // text
+      participant_id,   // text → Teilnehmer-ID
+      day_results       // object mit genau 1 Übung
+    } = req.body || {};
 
-    if (!klassencode || !participant_id || !day_results) {
+    if (!ausweis || !klassencode || !participant_id || !day_results) {
       return res.status(400).json({
         ok: false,
         reason: "MISSING_FIELDS"
@@ -53,26 +40,26 @@ app.post("/day-results", async (req, res) => {
 
     // 🔒 GENAU EINE ÜBUNG
     const exerciseCode = Object.keys(day_results)[0];
-    const exerciseData = day_results[exerciseCode];
 
-    const now = new Date().toISOString();
+    if (!exerciseCode) {
+      return res.status(400).json({
+        ok: false,
+        reason: "NO_EXERCISE_CODE"
+      });
+    }
 
-    // 🔒 FINALER, FEST VERDRAHTETER PAYLOAD
-    // 🔒 1:1 zu den Spalten in Supabase
+    // 🔒 TEST-1-PAYLOAD
+    // 🔒 EXAKT DIE ERSTEN 5 SPALTEN
     const payload = {
+      "Ausweis": ausweis,
       "Klassencode": klassencode,
       "Teilnehmer-ID": participant_id,
       set_id: crypto.randomUUID(),
-      "Übungscode": exerciseCode,
-      begann_am: now,
-      "abgeschlossen am": now,
-      "Dauer_ms": pickDurationMs(exerciseData),
-      "Ergebnis": exerciseData
-      // empfangen_am → wird automatisch von Supabase gesetzt
+      "Übungscode": exerciseCode
     };
 
     const { error } = await supabase
-      .from("exercise_results")
+      .from("day_results")
       .insert(payload);
 
     if (error) {
