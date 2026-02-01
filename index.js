@@ -1,6 +1,6 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto"; // 👈 NEU
+import crypto from "crypto";
 
 console.log("🔥🔥🔥 EXERCISE_RESULTS VERSION ACTIVE 🔥🔥🔥");
 
@@ -40,14 +40,17 @@ app.post("/day-results", async (req, res) => {
     const exerciseCode = Object.keys(day_results)[0];
     const exerciseData = day_results[exerciseCode];
 
+    const completedAt = completed_at
+      ? new Date(completed_at).toISOString()
+      : new Date().toISOString();
+
     const payload = {
       klassencode,
       participant_id,
-      set_id: crypto.randomUUID(),      // ✅ UUID erzeugen (FIX)
+      set_id: crypto.randomUUID(),   // ✅ UUID
       exercise_code: exerciseCode,
-      completed_at: completed_at
-        ? new Date(completed_at).toISOString()
-        : new Date().toISOString(),
+      started_at: completedAt,       // ✅ FIX: NOT NULL
+      completed_at: completedAt,
       result: exerciseData
     };
 
@@ -81,4 +84,5 @@ const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
   console.log("🚀 exercise-results-api running on", PORT);
 });
+
 
