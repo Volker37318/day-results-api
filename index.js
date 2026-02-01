@@ -19,29 +19,80 @@ const supabase = createClient(
 );
 
 /* ======================================================
-   STUFE 1 REAL
-   - id
-   - payload (ECHTE ÜBUNGSDATEN)
-   - received_at
+   STUFE 2 – GESCHÜTZTE EINTRAGUNGEN
+   - validiert Pflichtfelder
+   - verhindert kaputte Datensätze
 ====================================================== */
+
+function isNonEmptyString(v) {
+  return typeof v === "string" && v.trim().length > 0;
+}
+
+function isPlainObject(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
 
 app.post("/day-results", async (req, res) => {
   try {
     const body = req.body;
 
-    // 🔒 Minimal-Validierung
-    if (!body || typeof body !== "object") {
+    // 🔒 0. Grundprüfung
+    if (!isPlainObject(body)) {
       return res.status(400).json({
         ok: false,
         reason: "INVALID_BODY"
       });
     }
 
-    // 🔒 Server erzeugt Pflichtwerte
+    // 🔒 1. lesson_id
+    if (!isNonEmptyString(body.lesson_id)) {
+      return res.status(400).json({
+        ok: false,
+        reason: "MISSING_LESSON_ID"
+      });
+    }
+
+    // 🔒 2. participant_id
+    if (!isNonEmptyString(body.participant_id)) {
+      return res.status(400).json({
+        ok: false,
+        reason: "MISSING_PARTICIPANT_ID"
+      });
+    }
+
+    // 🔒 3. day_results
+    if (!isPlainObject(body.day_results)) {
+      return res.status(400).json({
+        ok: false,
+        reason: "INVALID_DAY_RESULTS"
+      });
+    }
+
+    const exerciseKeys = Object.keys(body.day_results);
+    if (exerciseKeys.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        reason: "EMPTY_DAY_RESULTS"
+      });
+    }
+
+    // optional: nur A–E erlauben
+    const invalidKey = exerciseKeys.find(
+      k => !["A", "B", "C", "D", "E"].includes(k)
+    );
+    if (invalidKey) {
+      return res.status(400).json({
+        ok: false,
+        reason: "INVALID_EXERCISE_KEY",
+        key: invalidKey
+      });
+    }
+
+    // 🔒 INSERT (wie STUFE 1)
     const row = {
-      id: crypto.randomUUID(),                 // Pflicht 1
-      payload: body,                           // Pflicht 2 (ECHTE Daten)
-      received_at: new Date().toISOString(),   // Pflicht 3
+      id: crypto.randomUUID(),
+      payload: body,
+      received_at: new Date().toISOString(),
       source: "frontend",
       schema_version: 1
     };
@@ -52,11 +103,9 @@ app.post("/day-results", async (req, res) => {
 
     if (error) {
       console.error("SUPABASE ERROR:", error);
-      console.error("ROW:", row);
       return res.status(500).json({
         ok: false,
-        reason: "DB_INSERT_FAILED",
-        details: error.message
+        reason: "DB_INSERT_FAILED"
       });
     }
 
