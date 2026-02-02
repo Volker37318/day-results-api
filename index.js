@@ -35,6 +35,8 @@ function isPlainObject(v) {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
+const ALLOWED_EXERCISES = ["A", "B", "C", "D", "E"];
+
 // --------------------------------------------------
 // POST /day-results
 // --------------------------------------------------
@@ -42,61 +44,48 @@ app.post("/day-results", async (req, res) => {
   try {
     const body = req.body;
 
-    // 🔒 0. Grundprüfung
+    // 0. Body
     if (!isPlainObject(body)) {
-      return res.status(400).json({
-        ok: false,
-        reason: "INVALID_BODY"
-      });
+      return res.status(400).json({ ok: false, reason: "INVALID_BODY" });
     }
 
-    // 🔒 1. lesson_id (Pflicht)
+    // 1. lesson_id
     if (!isNonEmptyString(body.lesson_id)) {
-      return res.status(400).json({
-        ok: false,
-        reason: "MISSING_LESSON_ID"
-      });
+      return res.status(400).json({ ok: false, reason: "MISSING_LESSON_ID" });
     }
 
-    // 🔒 2. klassencode (Pflicht, mit kontrolliertem Fallback)
+    // 2. klassencode
     const klassencode = isNonEmptyString(body.klassencode)
       ? body.klassencode.trim()
       : "UNDEFINED_CLASS";
 
-    // 🔒 3. participant_id (Pflicht, mit kontrolliertem Fallback)
+    // 3. participant_id
     const participant_id = isNonEmptyString(body.participant_id)
       ? body.participant_id.trim()
       : "UNDEFINED_PARTICIPANT";
 
-    // 🔒 4. day_results – genau EINE Übung
+    // 4. day_results (MEHRERE Übungen erlaubt)
     if (!isPlainObject(body.day_results)) {
-      return res.status(400).json({
-        ok: false,
-        reason: "INVALID_DAY_RESULTS"
-      });
+      return res.status(400).json({ ok: false, reason: "INVALID_DAY_RESULTS" });
     }
 
     const exerciseKeys = Object.keys(body.day_results);
-    if (exerciseKeys.length !== 1) {
-      return res.status(400).json({
-        ok: false,
-        reason: "INVALID_EXERCISE_COUNT"
-      });
-    }
 
-    const exerciseKey = exerciseKeys[0];
-    if (!["A", "B", "C", "D", "E"].includes(exerciseKey)) {
+    if (
+      exerciseKeys.length === 0 ||
+      !exerciseKeys.every(k => ALLOWED_EXERCISES.includes(k))
+    ) {
       return res.status(400).json({
         ok: false,
-        reason: "INVALID_EXERCISE_KEY",
-        key: exerciseKey
+        reason: "INVALID_EXERCISE_KEYS",
+        keys: exerciseKeys
       });
     }
 
     // --------------------------------------------------
-    // Payload kontrolliert neu aufbauen
+    // Payload (NICHT verändern!)
     // --------------------------------------------------
-    const nowIso = new Date().toISOString(); // UTC – korrekt so
+    const nowIso = new Date().toISOString();
 
     const payload = {
       lesson_id: body.lesson_id,
@@ -105,9 +94,7 @@ app.post("/day-results", async (req, res) => {
       completed_at: isNonEmptyString(body.completed_at)
         ? body.completed_at
         : nowIso,
-      day_results: {
-        [exerciseKey]: body.day_results[exerciseKey]
-      },
+      day_results: body.day_results, // ✅ D + E bleiben erhalten
       summary: isPlainObject(body.summary) ? body.summary : null
     };
 
@@ -117,7 +104,7 @@ app.post("/day-results", async (req, res) => {
     const row = {
       id: crypto.randomUUID(),
       payload,
-      received_at: nowIso, // UTC speichern
+      received_at: nowIso,
       source: "frontend",
       schema_version: 1
     };
